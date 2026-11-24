@@ -8,8 +8,10 @@ import { Sidebar } from "./sidebar.js";
 import { Connect } from "./connect.js";
 import { Menu } from "./menu.js";
 import { IssuePane } from "./issue.js";
+import { Knowledge } from "./knowledge.js";
+import { FileView } from "./file.js";
 
-const VIEWS = { sidebar: Sidebar, connect: Connect, menu: Menu, issue: IssuePane };
+const VIEWS = { sidebar: Sidebar, connect: Connect, menu: Menu, issue: IssuePane, knowledge: Knowledge, file: FileView };
 
 export default class Aims extends View {
   init(_props, cx) {

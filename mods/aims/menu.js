@@ -4,7 +4,7 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { props, closeOverlay, openOverlay, theme, setShared, notify } from "herdr";
+import { props, closeOverlay, openOverlay, theme, shared, setShared, notify, run } from "herdr";
 import { loadConfig, saveConfig, connectionFor, bumpRev } from "./config.js";
 import { callTool } from "./client.js";
 import { startWork } from "./start.js";
@@ -45,6 +45,16 @@ export class Menu {
     if (action.type === "view") {
       setShared(VIEW_KEY, action.value);
       closeOverlay(overlay);
+      return;
+    }
+    if (action.type === "knowledge") {
+      closeOverlay(overlay);
+      // The same shared request openKnowledge() in knowledge.js makes; written
+      // here so the menu does not import the view it is opening.
+      setShared("aims.knowledge", { url: action.url, workspace: action.workspace, at: Date.now() });
+      const open = shared("aims.knowledgePane");
+      if (open?.tab) run("tab.select", { id: open.tab });
+      else run("tab.new", { name: "Knowledge", mod: "aims", props: { view: "knowledge", url: action.url, workspace: action.workspace } });
       return;
     }
     if (action.type === "connect") {

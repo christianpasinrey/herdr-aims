@@ -145,6 +145,9 @@ export class Sidebar {
         items.push({ label: `${p.name}  ·  ${p.progress_percent}%`, checked: view === `project:${p.slug}`, action: { type: "view", value: `project:${p.slug}` } });
       }
     }
+    const connection = activeConnection(this.config);
+    items.push({ label: "Code", heading: true });
+    items.push({ label: "Knowledge base", action: { type: "knowledge", url: connection?.url, workspace: connection?.workspace } });
     openOverlay({ mod: "aims", kind: "popup", width: 260, height: Math.min(440, 14 + items.length * 30), props: { view: "menu", items } });
   }
 

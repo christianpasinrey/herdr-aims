@@ -11,6 +11,7 @@ import { callTool } from "./client.js";
 import { ISSUE_KEY, ISSUE_PANE_KEY } from "./menu.js";
 import { ICON, button, stateDot } from "./ui.js";
 import { START_KEY, shownPlace, repoOf } from "./start.js";
+import { openKnowledge } from "./knowledge.js";
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -20,6 +21,7 @@ const when = (iso) => {
 export class IssuePane {
   init(cx) {
     this.issue = null;
+    this.graphs = [];
     this.error = "";
     this.loading = false;
     this.sending = false;
@@ -74,6 +76,9 @@ export class IssuePane {
           this.issue = issue;
           this.error = "";
         }
+        // Code graphs are optional: an instance without them just shows none.
+        const graphs = await callTool(connection, "graphs-list", { owner_type: "issue", owner: selection.identifier }).catch(() => null);
+        if (this.shown === selection) this.graphs = graphs?.graphs ?? [];
       } catch (error) {
         if (this.shown === selection) this.error = String(error?.message ?? error);
       } finally {
@@ -189,7 +194,7 @@ export class IssuePane {
     const moved = selection?.identifier !== this.shown?.identifier || selection?.url !== this.shown?.url;
     if (!this.loading && (moved || rev !== this.rev)) {
       this.rev = rev;
-      if (moved) this.issue = null;
+      if (moved) { this.issue = null; this.graphs = []; }
       this.load(cx, true);
     }
 
@@ -307,6 +312,26 @@ export class IssuePane {
               .child(stateDot(t, child.state))
               .child(div().flex_none().text_size(11).text_color(t.dim).child(child.identifier))
               .child(div().flex_1().truncate().child(child.title)))),
+      ))
+      .when((this.graphs ?? []).length > 0, (el) => el.child(
+        v_flex()
+          .gap(4)
+          .child(div().text_size(11).font_medium().text_color(t.muted).child("Code graphs"))
+          .children(this.graphs.map((graph) =>
+            h_flex()
+              .id(`aims-graph-${graph.id}`)
+              .h(26)
+              .px(6)
+              .gap(8)
+              .rounded(6)
+              .items_center()
+              .text_size(12.5)
+              .cursor_pointer()
+              .hover((s) => s.bg(t.hover))
+              .on_click(() => openKnowledge({ url: this.shown?.url, workspace: issue.workspace_slug, graph: graph.id }))
+              .child(div().flex_none().w(74).text_size(10.5).text_color(graph.stage === "implemented" ? t.done : graph.stage === "planned" ? t.working : t.muted).child(graph.stage ?? ""))
+              .child(div().flex_1().truncate().child(graph.title))
+              .child(div().flex_none().text_size(11).text_color(t.dim).child(`${graph.references ?? 0} nodes`)))),
       ))
       .child(
         v_flex()
