@@ -80,13 +80,14 @@ export class Knowledge {
   }
 
   /**
-   * A request that names an instance (a graph opened from an issue) is asked
-   * there; otherwise the knowledge base is the active connection's workspace,
-   * and follows it when the person switches in the panel.
+   * A graph or node opened from an issue is asked on that issue's instance.
+   * Everything else is the active connection's selected workspace, and the
+   * view starts over there whenever the person switches in the panel.
    */
   async call(tool, args) {
     const config = await loadConfig();
-    const connection = this.target?.url
+    const pinned = this.target?.url && (this.target.graph || this.target.key);
+    const connection = pinned
       ? connectionFor(config, this.target.url, this.target.workspace)
       : activeConnection(config);
     if (!connection) throw new Error("Connect to AIMS first.");
@@ -330,10 +331,9 @@ export class Knowledge {
     } else if (!this.loading && rev !== this.rev) {
       // The panel switched connection or workspace: start over there.
       this.rev = rev;
-      if (!this.target?.url) {
-        this.history = [];
-        this.go(cx, { type: "home" }, true, false);
-      }
+      this.target = { at: this.target?.at ?? 0 };
+      this.history = [];
+      this.go(cx, { type: "home" }, true, false);
     }
 
     const page = this.page;
