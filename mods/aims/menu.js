@@ -51,10 +51,11 @@ export class Menu {
       closeOverlay(overlay);
       // The same shared request openKnowledge() in knowledge.js makes; written
       // here so the menu does not import the view it is opening.
-      setShared("aims.knowledge", { url: action.url, workspace: action.workspace, at: Date.now() });
+      // No instance named: the knowledge base follows the active connection.
+      setShared("aims.knowledge", { at: Date.now() });
       const open = shared("aims.knowledgePane");
       if (open?.tab) run("tab.select", { id: open.tab });
-      else run("tab.new", { name: "Knowledge", mod: "aims", props: { view: "knowledge", url: action.url, workspace: action.workspace } });
+      else run("tab.new", { name: "Knowledge", mod: "aims", props: { view: "knowledge" } });
       return;
     }
     if (action.type === "connect") {

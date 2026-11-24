@@ -183,7 +183,7 @@ export class Sidebar {
     const connection = activeConnection(this.config);
     if (!connection) return;
     const selection = { identifier: issue.identifier, url: connection.url, workspace: connection.workspace };
-    setShared(ISSUE_KEY, selection);
+    setShared(ISSUE_KEY, { ...selection, at: Date.now() });
     if (shared(ISSUE_PANE_KEY)?.tab !== focused()?.tab) {
       run("pane.split", { direction: "right", mod: "aims", props: { view: "issue", ...selection } });
     }

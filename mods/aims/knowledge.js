@@ -10,7 +10,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { props, theme, shared, setShared, focused, checking, run, readTextFile } from "herdr";
-import { loadConfig, connectionFor } from "./config.js";
+import { loadConfig, connectionFor, activeConnection, configRev } from "./config.js";
 import { callTool } from "./client.js";
 import { ISSUE_KEY, ISSUE_PANE_KEY } from "./menu.js";
 import { ICON } from "./ui.js";
@@ -42,6 +42,9 @@ export class Knowledge {
     this.error = "";
     this.localFile = null; // absolute path of the shown node's file, if it is in the shown repo
     this.tab = focused()?.tab ?? null;
+    this.where = null;
+    this.openedAt = Date.now();
+    this.rev = configRev();
 
     this.search = InputState.new({ placeholder: "Filter, or type a file path or class name and press Enter" });
     this.searchText = "";
@@ -62,7 +65,8 @@ export class Knowledge {
 
   selection() {
     const picked = shared(KNOWLEDGE_KEY);
-    return picked?.url ? picked : (props() ?? {});
+    // A request older than this pane was for another one; start from the props.
+    return (picked?.at ?? 0) >= this.openedAt ? picked : (props() ?? {});
   }
 
   /** Goes where the latest request points: a graph, a node, or the home list. */
@@ -75,9 +79,18 @@ export class Knowledge {
     else this.go(cx, { type: "home" }, rendering, false);
   }
 
+  /**
+   * A request that names an instance (a graph opened from an issue) is asked
+   * there; otherwise the knowledge base is the active connection's workspace,
+   * and follows it when the person switches in the panel.
+   */
   async call(tool, args) {
-    const connection = connectionFor(await loadConfig(), this.target?.url, this.target?.workspace);
+    const config = await loadConfig();
+    const connection = this.target?.url
+      ? connectionFor(config, this.target.url, this.target.workspace)
+      : activeConnection(config);
     if (!connection) throw new Error("Connect to AIMS first.");
+    this.where = { name: connection.name, workspace: connection.workspace, url: connection.url };
     return callTool(connection, tool, args);
   }
 
@@ -157,9 +170,9 @@ export class Knowledge {
 
   openOwner(owner) {
     if (owner?.type !== "issue" || !owner.identifier) return;
-    setShared(ISSUE_KEY, { identifier: owner.identifier, url: this.target?.url, workspace: this.target?.workspace });
+    setShared(ISSUE_KEY, { identifier: owner.identifier, url: this.where?.url, workspace: this.where?.workspace, at: Date.now() });
     if (shared(ISSUE_PANE_KEY)?.tab !== focused()?.tab) {
-      run("pane.split", { direction: "right", mod: "aims", props: { view: "issue", identifier: owner.identifier, url: this.target?.url, workspace: this.target?.workspace } });
+      run("pane.split", { direction: "right", mod: "aims", props: { view: "issue", identifier: owner.identifier, url: this.where?.url, workspace: this.where?.workspace } });
     }
   }
 
@@ -310,7 +323,18 @@ export class Knowledge {
 
     // The issue pane or the sidebar asked for another node, graph or workspace.
     const wanted = this.selection();
-    if (!this.loading && (wanted.at ?? 0) !== (this.target?.at ?? 0)) this.follow(cx, true);
+    const rev = configRev();
+    if (!this.loading && (wanted.at ?? 0) !== (this.target?.at ?? 0)) {
+      this.rev = rev;
+      this.follow(cx, true);
+    } else if (!this.loading && rev !== this.rev) {
+      // The panel switched connection or workspace: start over there.
+      this.rev = rev;
+      if (!this.target?.url) {
+        this.history = [];
+        this.go(cx, { type: "home" }, true, false);
+      }
+    }
 
     const page = this.page;
     const bar = h_flex()
@@ -324,6 +348,8 @@ export class Knowledge {
           .hover((s) => s.bg(t.hover))
           .on_click((_e, cx) => { this.history = []; this.go(cx, { type: "home" }, false, false); })
           .child("Knowledge"))
+      .when(Boolean(this.where), (el) => el.child(
+        div().flex_none().text_size(11.5).text_color(t.muted).child(`${this.where.name} · ${this.where.workspace ?? ""}`)))
       .child(
         Input.new(this.search).flex_1().h(28).px(9).rounded(7).border_1()
           .border_color(this.searchFocused ? t.accent : t.input).bg(t.background).text_size(12).text_color(t.foreground))

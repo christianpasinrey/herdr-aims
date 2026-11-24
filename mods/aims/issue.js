@@ -29,6 +29,7 @@ export class IssuePane {
     this.rev = configRev();
     this.shown = null; // the selection this pane last asked for
     this.tab = focused()?.tab ?? null;
+    this.openedAt = Date.now();
 
     this.comment = TextareaState.new({ placeholder: "Leave a comment…", rows: 3 });
     this.commentFocused = false;
@@ -49,7 +50,9 @@ export class IssuePane {
   selection() {
     const picked = shared(ISSUE_KEY);
     const fallback = props() ?? {};
-    const s = picked?.identifier ? picked : fallback;
+    // A pick made before this pane opened is someone else's: a pane opened
+    // for an issue shows that issue until the person picks another.
+    const s = picked?.identifier && (picked.at ?? 0) >= this.openedAt ? picked : fallback;
     return s?.identifier ? { identifier: s.identifier, url: s.url, workspace: s.workspace ?? null } : null;
   }
 
@@ -308,7 +311,7 @@ export class IssuePane {
               .text_size(12.5)
               .cursor_pointer()
               .hover((s) => s.bg(t.hover))
-              .on_click(() => setShared(ISSUE_KEY, { identifier: child.identifier, url: this.shown?.url, workspace: issue.workspace_slug }))
+              .on_click(() => setShared(ISSUE_KEY, { identifier: child.identifier, url: this.shown?.url, workspace: issue.workspace_slug, at: Date.now() }))
               .child(stateDot(t, child.state))
               .child(div().flex_none().text_size(11).text_color(t.dim).child(child.identifier))
               .child(div().flex_1().truncate().child(child.title)))),
