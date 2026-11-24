@@ -21,6 +21,7 @@ export function openConnect() {
 export class Menu {
   init(cx) {
     this.at = 0;
+    this.busy = false;
     this.handle = cx.focus_handle();
     this.handle.focus();
   }
@@ -29,40 +30,58 @@ export class Menu {
     return (props()?.items ?? []).filter((item) => item && typeof item.label === "string");
   }
 
+  /**
+   * A popup that closes takes its unfinished work with it, so anything that
+   * waits (a file write, a call to the server) finishes first and the popup
+   * closes after.
+   */
   choose(index, cx) {
     const item = this.items()[index];
-    if (!item || item.heading) return;
-    closeOverlay(props()?.overlay);
-
+    if (!item || item.heading || this.busy) return;
+    const overlay = props()?.overlay;
     const action = item.action ?? {};
+
     if (action.type === "view") {
       setShared(VIEW_KEY, action.value);
-    } else if (action.type === "connect") {
+      closeOverlay(overlay);
+      return;
+    }
+    if (action.type === "connect") {
+      closeOverlay(overlay);
       openConnect();
-    } else if (action.type === "tool") {
-      // A write on the server (a status change): run it, then let every copy reload.
-      cx.spawn(async () => {
-        try {
-          const connection = connectionFor(await loadConfig(), action.url, action.workspace);
+      return;
+    }
+    if (action.type !== "tool" && action.type !== "workspace" && action.type !== "connection") {
+      closeOverlay(overlay);
+      return;
+    }
+
+    this.busy = true;
+    this.at = index;
+    cx.notify();
+    cx.spawn(async () => {
+      try {
+        const config = await loadConfig();
+        if (action.type === "tool") {
+          // A write on the server (a status change); every copy reloads after.
+          const connection = connectionFor(config, action.url, action.workspace);
           if (!connection) throw new Error("No AIMS connection.");
           await callTool(connection, action.tool, action.args ?? {});
           bumpRev();
-        } catch (error) {
-          notify({ title: "AIMS", body: String(error?.message ?? error), level: "error" });
-        }
-      });
-    } else if (action.type === "workspace" || action.type === "connection") {
-      cx.spawn(async () => {
-        const config = await loadConfig();
-        if (action.type === "connection") {
-          if (action.index >= 0 && action.index < config.connections.length) config.active = action.index;
         } else {
-          const connection = config.connections[config.active];
-          if (connection) connection.workspace = action.slug;
+          if (action.type === "connection") {
+            if (action.index >= 0 && action.index < config.connections.length) config.active = action.index;
+          } else {
+            const connection = config.connections[config.active];
+            if (connection) connection.workspace = action.slug;
+          }
+          await saveConfig(config);
         }
-        await saveConfig(config);
-      });
-    }
+      } catch (error) {
+        notify({ title: "AIMS", body: String(error?.message ?? error), level: "error" });
+      }
+      closeOverlay(overlay);
+    });
   }
 
   render() {
@@ -110,7 +129,8 @@ export class Menu {
                 .hover((s) => s.bg(t.hover))
                 .on_click((_e, cx) => this.choose(i, cx))
                 .child(div().flex_1().truncate().child(item.label))
-                .when(Boolean(item.checked), (el) => el.child(svg(ICON("check")).size(13).flex_none().text_color(t.foreground))),
+                .when(this.busy && i === this.at, (el) => el.child(svg(ICON("spinner")).size(12).flex_none().text_color(t.working).spin(900)))
+                .when(Boolean(item.checked) && !(this.busy && i === this.at), (el) => el.child(svg(ICON("check")).size(13).flex_none().text_color(t.foreground))),
         ),
       );
   }
