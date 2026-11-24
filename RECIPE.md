@@ -53,7 +53,7 @@ Your [AIMS](https://github.com/christianpasinrey/open-aims) issue tracker inside
 - AIMS tools: `board-overview`, `board-issues`, `board-issue`, `issues-start`, `issues-transition`, `issues-comment`, `graphs-map` (`hotspots`, `node`, `neighbors`), `graphs-get`, `graphs-list`.
 - Herdr commands: `pane.split {direction, mod, props}`, `tab.new`, `tab.select`, `space.new`. Overlays: `openOverlay` as `dialog` and `popup`.
 - Icons: its own `aims.svg` and `refresh.svg`, and the shipped `mods/workspace-chrome/` icons (`chevron-down`, `chevron-left`, `chevron-right`, `check`, `server`, `spinner`, `x`).
-- Optional layout `layouts/aims.json`: the shipped `main` with one more block in `sidebar-lists`, between `spaces` and `agents`: `{ "id": "aims", "type": "block", "size": { "weight": 1 }, "min": 90, "content": { "mod": "aims", "props": { "view": "sidebar" } } }`.
+- To dock the panel, a layout gets one block; in a clone of the shipped `main` it goes in `sidebar-lists`, between `spaces` and `agents`: `{ "id": "aims", "type": "block", "size": { "weight": 1 }, "min": 90, "content": { "mod": "aims", "props": { "view": "sidebar" } } }`.
 
 **This mod reaches the network** (the AIMS instances you connect, nothing else), **runs `git`** when you start work in a worktree, and **reads and writes one file outside its folder**, `aims.json`, plus Herdr's `settings.json` read-only.
 

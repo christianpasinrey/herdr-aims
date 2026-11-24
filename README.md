@@ -16,7 +16,7 @@ To show the panel, add a block to your layout:
 { "id": "aims", "type": "block", "size": { "weight": 1 }, "min": 90, "content": { "mod": "aims", "props": { "view": "sidebar" } } }
 ```
 
-or use `layouts/aims.json`, the shipped `main` layout with that block in its sidebar.
+In the shipped `main` layout it goes in `sidebar-lists`, between `spaces` and `agents` (clone `main` first: shipped layouts are read-only).
 
 ## What it touches
 
