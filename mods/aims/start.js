@@ -56,6 +56,11 @@ const folderName = (branch) => branch.normalize("NFC").replace(/[^\p{L}\p{M}\p{N
 
 /** The checkout for a branch: the one it already has, else a new worktree. */
 async function ensureWorktree(repo, branch) {
+  // The branch name comes from the server. git gets it as an argument, never
+  // through a shell, but a name starting with "-" would read as an option.
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(branch) || branch.includes("..")) {
+    throw new Error(`"${branch}" is not a branch name Herdr will create.`);
+  }
   const list = await git(repo.main, ["worktree", "list", "--porcelain"]);
   if (list.ok) {
     for (const block of list.out.split(/\n\n+/)) {
