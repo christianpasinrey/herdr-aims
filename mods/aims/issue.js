@@ -5,11 +5,12 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, TextView, TextareaState, Textarea } from "gpui-base";
-import { props, theme, shared, setShared, openOverlay, focused, checking, notify } from "herdr";
+import { props, theme, shared, setShared, openOverlay, focused, checking, notify, knownAgents } from "herdr";
 import { loadConfig, configRev, connectionFor, bumpRev } from "./config.js";
 import { callTool } from "./client.js";
 import { ISSUE_KEY, ISSUE_PANE_KEY } from "./menu.js";
 import { ICON, button, stateDot } from "./ui.js";
+import { START_KEY, shownPlace, repoOf } from "./start.js";
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -22,6 +23,7 @@ export class IssuePane {
     this.error = "";
     this.loading = false;
     this.sending = false;
+    this.starting = false;
     this.rev = configRev();
     this.shown = null; // the selection this pane last asked for
     this.tab = focused()?.tab ?? null;
@@ -119,6 +121,48 @@ export class IssuePane {
     openOverlay({ mod: "aims", kind: "popup", width: 220, height: Math.min(420, 14 + items.length * 30), props: { view: "menu", items } });
   }
 
+  /** Offers the installed agents, in a new worktree (inside a repo) or here. */
+  openStartMenu(cx) {
+    const issue = this.issue;
+    if (!issue || this.starting) return;
+    this.starting = true;
+    cx.notify();
+
+    cx.spawn(async (cx) => {
+      try {
+        const place = shownPlace();
+        const local = place && place.machine === null;
+        const agents = (await knownAgents({ on: place?.machine ?? null })).filter((a) => a.installed);
+        const repo = local ? await repoOf(place.folder).catch(() => null) : null;
+        const last = shared(START_KEY) ?? {};
+        const base = { type: "start", identifier: issue.identifier, url: this.shown?.url, workspace: issue.workspace_slug, folder: place?.folder ?? null };
+
+        const items = [];
+        const offer = (mode, heading) => {
+          items.push({ label: heading, heading: true });
+          for (const agent of agents) {
+            items.push({
+              label: agent.name,
+              checked: last.mode === mode && last.agent === agent.key,
+              action: { ...base, mode, agent: agent.key, argv: agent.run, repo },
+            });
+          }
+        };
+        if (!agents.length) items.push({ label: "No coding agent is installed here.", heading: true });
+        else {
+          if (repo) offer("worktree", `New worktree in ${repo.name} · ${issue.branch}`);
+          offer("here", "Here, in a new tab");
+        }
+        openOverlay({ mod: "aims", kind: "popup", width: 340, height: Math.min(440, 14 + items.length * 30), props: { view: "menu", items } });
+      } catch (error) {
+        notify({ title: "AIMS", body: String(error?.message ?? error), level: "error" });
+      } finally {
+        this.starting = false;
+        cx.notify();
+      }
+    });
+  }
+
   chip(t, id, children, action) {
     return h_flex()
       .id(id)
@@ -192,6 +236,23 @@ export class IssuePane {
               .hover((s) => s.bg(t.hover))
               .on_click((_e, cx) => cx.open_url(issue.url))
               .child("Open in browser"),
+          )
+          .child(
+            h_flex()
+              .id("aims-issue-start")
+              .h(22)
+              .px(8)
+              .flex_none()
+              .rounded(6)
+              .items_center()
+              .bg(t.solid)
+              .text_size(11.5)
+              .font_medium()
+              .text_color(t.solid_foreground)
+              .cursor_pointer()
+              .hover((s) => s.opacity(0.88))
+              .on_click((_e, cx) => this.openStartMenu(cx))
+              .child(this.starting ? "…" : "Start work"),
           ),
       )
       .child(div().text_size(16).font_semibold().child(issue.title))

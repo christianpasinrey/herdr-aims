@@ -7,6 +7,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { props, closeOverlay, openOverlay, theme, setShared, notify } from "herdr";
 import { loadConfig, saveConfig, connectionFor, bumpRev } from "./config.js";
 import { callTool } from "./client.js";
+import { startWork } from "./start.js";
 import { ICON } from "./ui.js";
 
 export const VIEW_KEY = "aims.view";
@@ -51,7 +52,7 @@ export class Menu {
       openConnect();
       return;
     }
-    if (action.type !== "tool" && action.type !== "workspace" && action.type !== "connection") {
+    if (!["tool", "workspace", "connection", "start"].includes(action.type)) {
       closeOverlay(overlay);
       return;
     }
@@ -62,7 +63,9 @@ export class Menu {
     cx.spawn(async () => {
       try {
         const config = await loadConfig();
-        if (action.type === "tool") {
+        if (action.type === "start") {
+          await startWork(action);
+        } else if (action.type === "tool") {
           // A write on the server (a status change); every copy reloads after.
           const connection = connectionFor(config, action.url, action.workspace);
           if (!connection) throw new Error("No AIMS connection.");
