@@ -1,0 +1,8 @@
+{
+  "place": "none",
+  "title": "AIMS",
+  "overlay": { "width": 460, "height": 470 },
+  "palette": [
+    { "title": "AIMS: connect", "command": "mod.open", "args": { "name": "aims" }, "words": "aims token instance issues tracker", "group": "AIMS" }
+  ]
+}
