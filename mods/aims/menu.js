@@ -4,11 +4,15 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { props, closeOverlay, openOverlay, theme, setShared } from "herdr";
-import { loadConfig, saveConfig } from "./config.js";
+import { props, closeOverlay, openOverlay, theme, setShared, notify } from "herdr";
+import { loadConfig, saveConfig, connectionFor, bumpRev } from "./config.js";
+import { callTool } from "./client.js";
 import { ICON } from "./ui.js";
 
 export const VIEW_KEY = "aims.view";
+
+export const ISSUE_KEY = "aims.issue";
+export const ISSUE_PANE_KEY = "aims.issuePane";
 
 export function openConnect() {
   openOverlay({ mod: "aims", kind: "dialog", width: 460, height: 470, props: { view: "connect" } });
@@ -35,6 +39,18 @@ export class Menu {
       setShared(VIEW_KEY, action.value);
     } else if (action.type === "connect") {
       openConnect();
+    } else if (action.type === "tool") {
+      // A write on the server (a status change): run it, then let every copy reload.
+      cx.spawn(async () => {
+        try {
+          const connection = connectionFor(await loadConfig(), action.url, action.workspace);
+          if (!connection) throw new Error("No AIMS connection.");
+          await callTool(connection, action.tool, action.args ?? {});
+          bumpRev();
+        } catch (error) {
+          notify({ title: "AIMS", body: String(error?.message ?? error), level: "error" });
+        }
+      });
     } else if (action.type === "workspace" || action.type === "connection") {
       cx.spawn(async () => {
         const config = await loadConfig();

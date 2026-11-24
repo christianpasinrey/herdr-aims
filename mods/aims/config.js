@@ -60,3 +60,13 @@ export async function saveConfig(config) {
 }
 
 export const activeConnection = (config) => config.connections[config.active] ?? null;
+
+/** Tells every open copy that something on the server changed. */
+export const bumpRev = () => setShared(REV, Date.now());
+
+/** The connection for an instance address, with a workspace of its own if given. */
+export function connectionFor(config, url, workspace) {
+  const found = config.connections.find((c) => c.url === url) ?? activeConnection(config);
+  if (!found) return null;
+  return workspace ? { ...found, workspace } : found;
+}

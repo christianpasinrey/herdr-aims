@@ -7,8 +7,9 @@ import { props } from "herdr";
 import { Sidebar } from "./sidebar.js";
 import { Connect } from "./connect.js";
 import { Menu } from "./menu.js";
+import { IssuePane } from "./issue.js";
 
-const VIEWS = { sidebar: Sidebar, connect: Connect, menu: Menu };
+const VIEWS = { sidebar: Sidebar, connect: Connect, menu: Menu, issue: IssuePane };
 
 export default class Aims extends View {
   init(_props, cx) {
@@ -20,5 +21,9 @@ export default class Aims extends View {
 
   render(cx) {
     return this.view.render(cx);
+  }
+
+  async close(cx) {
+    this.view.close?.(cx);
   }
 }

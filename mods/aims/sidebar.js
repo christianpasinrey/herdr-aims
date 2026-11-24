@@ -3,10 +3,10 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { theme, shared, openOverlay, window, checking } from "herdr";
+import { theme, shared, setShared, openOverlay, window, checking, run, focused } from "herdr";
 import { loadConfig, configRev, activeConnection } from "./config.js";
 import { callTool } from "./client.js";
-import { VIEW_KEY, openConnect } from "./menu.js";
+import { VIEW_KEY, ISSUE_KEY, ISSUE_PANE_KEY, openConnect } from "./menu.js";
 import { ICON, OWN, iconButton, stateDot, priorityMark, TYPE_ORDER } from "./ui.js";
 
 const REFRESH_MS = 60_000;
@@ -59,10 +59,11 @@ export class Sidebar {
   }
 
   /** Reads the connections file when asked, then the overview and the list. */
-  reload(cx, readConfig) {
+  reload(cx, readConfig, rendering = false) {
     if (this.loading) return;
     this.loading = true;
-    cx.notify();
+    // render() may not ask for another render; it is already drawing this state.
+    if (!rendering) cx.notify();
 
     cx.spawn(async (cx) => {
       try {
@@ -174,6 +175,17 @@ export class Sidebar {
         ));
   }
 
+  /** Shows the issue beside the terminal: in the tab's issue pane, or a new one. */
+  openIssue(issue) {
+    const connection = activeConnection(this.config);
+    if (!connection) return;
+    const selection = { identifier: issue.identifier, url: connection.url, workspace: connection.workspace };
+    setShared(ISSUE_KEY, selection);
+    if (shared(ISSUE_PANE_KEY)?.tab !== focused()?.tab) {
+      run("pane.split", { direction: "right", mod: "aims", props: { view: "issue", ...selection } });
+    }
+  }
+
   row(t, issue) {
     return h_flex()
       .id(`aims-issue-${issue.identifier}`)
@@ -186,7 +198,7 @@ export class Sidebar {
       .text_size(12.5)
       .cursor_pointer()
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => cx.open_url(issue.url))
+      .on_click(() => this.openIssue(issue))
       .child(stateDot(t, issue.state))
       .child(div().flex_none().text_size(11).text_color(t.dim).child(issue.identifier))
       .child(div().flex_1().truncate().text_color(t.foreground).child(issue.title))
@@ -215,7 +227,7 @@ export class Sidebar {
       const readConfig = rev !== this.rev;
       this.rev = rev;
       this.shownView = view;
-      this.reload(cx, readConfig);
+      this.reload(cx, readConfig, true);
     }
 
     if (this.size.width < 160) return this.rail(t);
